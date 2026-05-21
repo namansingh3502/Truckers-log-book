@@ -22,4 +22,5 @@ class UserOut(Schema):
 
 
 class AuthOut(Schema):
+    session_key: str
     user: UserOut

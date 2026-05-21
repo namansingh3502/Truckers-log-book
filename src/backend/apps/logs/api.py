@@ -3,8 +3,8 @@ from datetime import date as date_cls, timedelta
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from ninja import Query, Router
-from ninja.security import django_auth
 
+from apps.accounts.auth import SessionKeyAuth
 from .models import DailyLog, DutySegment
 from .schemas import (
     DailyLogIn,
@@ -15,7 +15,7 @@ from .schemas import (
     SegmentOut,
 )
 
-router = Router(auth=django_auth)
+router = Router(auth=SessionKeyAuth())
 
 
 def _is_editable(log: DailyLog) -> bool:

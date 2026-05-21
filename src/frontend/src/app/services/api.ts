@@ -1,5 +1,7 @@
 import { config } from '../config';
 
+const SESSION_KEY = 'elb.auth.session';
+
 export interface AuthUser {
   id: number;
   username: string;
@@ -10,6 +12,7 @@ export interface AuthUser {
 }
 
 export interface AuthResponse {
+  session_key: string;
   user: AuthUser;
 }
 
@@ -113,6 +116,25 @@ export class ApiError extends Error {
   }
 }
 
+export function getSessionKey(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(SESSION_KEY);
+}
+
+export function setSessionKey(key: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (key) window.localStorage.setItem(SESSION_KEY, key);
+  else window.localStorage.removeItem(SESSION_KEY);
+}
+
+function persistAuthResponse(response: AuthResponse): AuthResponse {
+  if (!response.session_key) {
+    throw new ApiError(401, 'Login response did not include a session key');
+  }
+  setSessionKey(response.session_key);
+  return response;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -123,6 +145,11 @@ async function request<T>(
     Accept: 'application/json',
   };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const sessionKey = getSessionKey();
+  if (sessionKey) {
+    headers.Authorization = `Session ${sessionKey}`;
+    headers['X-Session-Key'] = sessionKey;
+  }
 
   const res = await fetch(`${config.apiUrl}/api${path}`, {
     method,
@@ -158,9 +185,11 @@ function safeJson(text: string): unknown {
 export const api = {
   auth: {
     register: (username: string, password: string, email?: string) =>
-      request<AuthResponse>('POST', '/auth/register', { username, password, email }),
+      request<AuthResponse>('POST', '/auth/register', { username, password, email }).then(
+        persistAuthResponse,
+      ),
     login: (username: string, password: string) =>
-      request<AuthResponse>('POST', '/auth/login', { username, password }),
+      request<AuthResponse>('POST', '/auth/login', { username, password }).then(persistAuthResponse),
     logout: () => request<void>('POST', '/auth/logout'),
     me: () => request<AuthUser>('GET', '/auth/me'),
   },
