@@ -1,6 +1,6 @@
-# Revamp ELB Logbook UX
+# Truckers Log Book.
 
-Electronic Logbook (ELB) for property-carrying CMV drivers — route planning, daily duty-status logs, and FMCSA-style log sheets. UX revamp of the original Figma design at https://www.figma.com/design/uBvzIcaWsBsNupH1YjGSgD/Revamp-ELB-Logbook-UX.
+Electronic Logbook (ELB) for property-carrying CMV drivers — route planning, daily duty-status logs, and FMCSA-style log sheets.
 
 Full-stack:
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind + Radix + Leaflet
