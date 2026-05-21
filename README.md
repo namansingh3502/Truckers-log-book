@@ -15,7 +15,7 @@ Full-stack:
 - **Editable today's log** — with ±1 day window for timezone skew.
 - **Pagination** — paged log list with page-size selector.
 - **Backdated seed data** — every new signup auto-gets 10 randomized historical logs with realistic carrier, cities, highways, truck stops, and remarks.
-- **Token auth** — bearer tokens issued on register/login, stored client-side in `localStorage`.
+- **Session auth** — Django session login/logout with cookie-based API requests.
 
 ---
 
@@ -29,16 +29,14 @@ Full-stack:
     ├── backend/                       # Django + Ninja API
     │   ├── manage.py
     │   ├── pyproject.toml             # uv-managed deps
-    │   ├── db.sqlite3                 # default dev DB
     │   ├── config/
     │   │   ├── settings.py            # Django settings (TIME_ZONE=UTC, USE_TZ=True)
     │   │   ├── urls.py                # mounts /api → NinjaAPI
     │   │   ├── api.py                 # NinjaAPI root + router mounts
     │   │   ├── asgi.py / wsgi.py
     │   └── apps/
-    │       ├── accounts/              # users, tokens, auth
-    │       │   ├── models.py          # User, Token
-    │       │   ├── auth.py            # AuthBearer (HttpBearer)
+    │       ├── accounts/              # users and session auth
+    │       │   ├── models.py          # User
     │       │   ├── api.py             # /auth/register, /login, /logout, /me
     │       │   └── schemas.py
     │       ├── trips/                 # trip planning persistence
@@ -73,7 +71,6 @@ Full-stack:
                     ├── SegmentEditor.tsx
                     ├── RouteMap.tsx       # Leaflet map
                     ├── LocationAutocomplete.tsx
-                    ├── RemarksList.tsx
                     ├── logbook-utils.ts
                     └── ui/                # shadcn-style primitives
 ```
@@ -117,16 +114,14 @@ echo "VITE_API_URL=http://localhost:8000" > src/frontend/.env.local
 
 ## Auth
 
-Bearer-token scheme implemented in `apps/accounts/auth.py` (`AuthBearer` extends Ninja `HttpBearer`).
+Django session authentication is used through `django.contrib.auth` and Ninja's `django_auth`.
 
 Flow:
-1. `POST /api/auth/register` → creates `User`, issues `Token`, **also runs `seed_backdated_logs(user, count=10, start_offset=1)`** to populate demo history.
-2. `POST /api/auth/login` → issues new `Token`.
-3. Frontend stores token under `localStorage` key `elb.auth.token` (`services/api.ts`).
-4. All `/trips/*` and `/logs/*` requests require `Authorization: Bearer <token>`.
-5. `POST /api/auth/logout` deletes the token row.
-
-Tokens stored verbatim in DB (`Token.key`). Fine for dev; rotate to hashed tokens or JWT for production.
+1. `POST /api/auth/register` → creates `User`, calls Django `login()`, **also runs `seed_backdated_logs(user, count=10, start_offset=1)`** to populate demo history.
+2. `POST /api/auth/login` → authenticates credentials and calls Django `login()`.
+3. Frontend sends API requests with `credentials: 'include'` so the browser carries the session cookie.
+4. All `/trips/*` and `/logs/*` requests require an authenticated Django session.
+5. `POST /api/auth/logout` calls Django `logout()` and clears the session.
 
 ---
 
@@ -165,8 +160,8 @@ Mounted under `/api` (`config/api.py`).
 |--------|-------------|--------|------------------|
 | POST   | `/register` | none   | `AuthOut` (201)  |
 | POST   | `/login`    | none   | `AuthOut`        |
-| POST   | `/logout`   | bearer | 204              |
-| GET    | `/me`       | bearer | `UserOut`        |
+| POST   | `/logout`   | session | 204             |
+| GET    | `/me`       | session | `UserOut`       |
 
 ### Trips — `/api/trips`
 Full CRUD: `GET /`, `POST /`, `GET /{id}`, `PATCH /{id}`, `DELETE /{id}`. Scoped to `request.auth`.
@@ -211,13 +206,13 @@ Pagination response shape:
 
 **Trip** — `apps/trips/models.py` — geocoded route inputs + computed plan.
 
-**User / Token** — `apps/accounts/models.py` — custom user model + opaque-key token table.
+**User** — `apps/accounts/models.py` — custom user model.
 
 ---
 
 ## Frontend notes
 
-- **API client**: `src/app/services/api.ts` — `api.auth.*`, `api.trips.*`, `api.logs.*`. Reads token from `localStorage`, injects `Authorization: Bearer`. Throws `ApiError(status, message, body)` on non-2xx.
+- **API client**: `src/app/services/api.ts` — `api.auth.*`, `api.trips.*`, `api.logs.*`. Sends cookies with `credentials: 'include'`. Throws `ApiError(status, message, body)` on non-2xx.
 - **Routing/geocoding**: `src/app/services/routing.ts` — external geocoder + route fetch (Leaflet for rendering).
 - **Logbook view**: `LogbookEntry.tsx` — list + expandable log cards, paginated (default 5/page, selector for 5/10/20/50), inline editing for today's log, debounced PATCH via `patchTimers`.
 - **Styling**: Tailwind v4 + shadcn-style primitives in `components/ui/`; theme tokens in `default_shadcn_theme.css`.
@@ -230,6 +225,50 @@ Pagination response shape:
 - **Reseed an existing user**: delete their `daily_logs` rows in admin or shell, then `uv run python manage.py seed_user_logs <username>`.
 - **CORS**: configured via `django-cors-headers` in `config/settings.py` — adjust `CORS_ALLOWED_ORIGINS` if frontend runs on non-default port.
 - **TZ skew debugging**: `uv run python manage.py shell -c "from datetime import date; print(date.today())"` vs browser's `new Date().toISOString().slice(0,10)`.
+
+---
+
+## Deployment (Vercel — separate FE + BE, same repo)
+
+Two independent Vercel projects pointing at the same monorepo. Each sets its **Root Directory** in Vercel project settings.
+
+### Frontend Vercel project
+- **Root Directory**: `src/frontend`
+- **Framework**: auto-detected as Vite (also pinned in `src/frontend/vercel.json`)
+- **Build**: `pnpm install --frozen-lockfile` → `pnpm build` → output `dist/`
+- **SPA routing**: `vercel.json` rewrites non-asset paths to `index.html`
+- **Env vars** (Vercel dashboard → Settings → Environment Variables):
+  - `VITE_API_URL=https://<your-backend>.vercel.app` (no trailing slash)
+
+### Backend Vercel project
+- **Root Directory**: `src/backend`
+- **Framework**: Vercel auto-detects Django from `src/backend/wsgi.py` (root-level shim that re-exports `application` from `config/wsgi.py`)
+- **Routing**: all paths handled by the Django WSGI app (admin + `/api/*`)
+- **Dependencies**: Vercel reads `src/backend/requirements.txt` (pyproject/uv ignored on Vercel; keep `requirements.txt` in sync)
+- **Env vars**:
+  - `SECRET_KEY` — long random string
+  - `DEBUG=False`
+  - `ALLOWED_HOSTS=<your-backend>.vercel.app`
+  - `CORS_ALLOWED_ORIGINS=https://<your-frontend>.vercel.app`
+  - `DATABASE_URL=postgres://…` — **required**. Vercel's serverless FS is ephemeral/read-only, so SQLite won't persist between invocations. Use Neon / Supabase / Railway Postgres. `psycopg[binary]` is in `requirements.txt`.
+
+### Caveats / known limits
+- **Migrations**: Vercel build step does not run `manage.py migrate`. Run migrations manually against the external DB before/after deploy:
+  ```bash
+  DATABASE_URL=postgres://… uv run python manage.py migrate
+  ```
+- **Django admin static assets**: this project does not bundle WhiteNoise; the JSON API works fine, but `/admin/` CSS/JS may 404 on Vercel. Either add WhiteNoise + `collectstatic`, or host admin elsewhere.
+- **Cold starts**: serverless Python lambdas cold-start on idle; first request may be slow.
+- **File uploads / media**: no persistent disk on Vercel. Use S3/Cloudinary etc. if you add media later.
+
+### Local preview
+```bash
+# from src/frontend
+vercel dev
+
+# from src/backend
+vercel dev
+```
 
 ---
 

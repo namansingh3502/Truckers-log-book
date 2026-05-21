@@ -1,12 +1,11 @@
 from django.shortcuts import get_object_or_404
 from ninja import Router
-
-from apps.accounts.auth import AuthBearer
+from ninja.security import django_auth
 
 from .models import Trip
 from .schemas import TripIn, TripOut, TripPatch
 
-router = Router(auth=AuthBearer())
+router = Router(auth=django_auth)
 
 
 @router.get('/', response=list[TripOut])

@@ -11,7 +11,6 @@ export interface RouteResult {
   distanceMiles: number;
   durationHours: number;
   coordinates: LatLon[];
-  legs: { distanceMiles: number; durationHours: number }[];
 }
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
@@ -122,7 +121,6 @@ export async function fetchRoute(points: LatLon[], signal?: AbortSignal): Promis
       distance: number;
       duration: number;
       geometry: { coordinates: [number, number][] };
-      legs: Array<{ distance: number; duration: number }>;
     }>;
   } = await res.json();
 
@@ -135,10 +133,6 @@ export async function fetchRoute(points: LatLon[], signal?: AbortSignal): Promis
     distanceMiles: route.distance / METERS_PER_MILE,
     durationHours: route.duration / 3600,
     coordinates: route.geometry.coordinates.map(([lon, lat]) => ({ lat, lon })),
-    legs: route.legs.map((leg) => ({
-      distanceMiles: leg.distance / METERS_PER_MILE,
-      durationHours: leg.duration / 3600,
-    })),
   };
 }
 

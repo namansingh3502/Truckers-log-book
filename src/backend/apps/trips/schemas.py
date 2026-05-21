@@ -10,12 +10,6 @@ class LatLon(Schema):
     lon: float
 
 
-class GeocodeOut(Schema):
-    lat: float
-    lon: float
-    displayName: str
-
-
 class TripIn(Schema):
     current_location: str
     pickup_location: str
@@ -25,8 +19,8 @@ class TripIn(Schema):
     driving_hours: Decimal | None = None
     total_trip_hours: Decimal | None = None
     fuel_stop_count: int | None = None
-    route_geometry: list[LatLon] = []
-    geocoded: dict = {}
+    route_geometry: list[LatLon] = Field(default_factory=list)
+    geocoded: dict = Field(default_factory=dict)
 
 
 class TripPatch(Schema):

@@ -319,12 +319,11 @@ export function LogbookEntry({ user, onLogout }: Props) {
     const target = logs[logIndex];
     if (!target || getDayStatus(target.isoDate) !== 'today') return;
     try {
-      const saved = await api.logs.replaceSegments(target.id, segments.map(uiSegToApi));
+      await api.logs.replaceSegments(target.id, segments.map(uiSegToApi));
       const fresh = await api.logs.get(target.id);
       setLogs((prev) =>
         prev.map((log, i) => (i === logIndex ? apiLogToUi(fresh) : log)),
       );
-      void saved;
     } catch (err) {
       setLogsError(err instanceof ApiError ? err.message : 'Failed to save segments');
     }

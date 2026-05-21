@@ -65,7 +65,8 @@ lerna-debug.log*
 
 # ---- Misc logs ----
 *.log
-logs/
+/logs/
+!src/backend/apps/logs/
 
 # ---- Build / coverage artifacts ----
 coverage/

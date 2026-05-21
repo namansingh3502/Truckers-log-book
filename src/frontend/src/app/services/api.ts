@@ -1,7 +1,5 @@
 import { config } from '../config';
 
-const TOKEN_KEY = 'elb.auth.token';
-
 export interface AuthUser {
   id: number;
   username: string;
@@ -12,7 +10,6 @@ export interface AuthUser {
 }
 
 export interface AuthResponse {
-  token: string;
   user: AuthUser;
 }
 
@@ -116,17 +113,6 @@ export class ApiError extends Error {
   }
 }
 
-export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string | null): void {
-  if (typeof window === 'undefined') return;
-  if (token) window.localStorage.setItem(TOKEN_KEY, token);
-  else window.localStorage.removeItem(TOKEN_KEY);
-}
-
 async function request<T>(
   method: string,
   path: string,
@@ -137,12 +123,11 @@ async function request<T>(
     Accept: 'application/json',
   };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${config.apiUrl}/api${path}`, {
     method,
     headers,
+    credentials: 'include',
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
   });

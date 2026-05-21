@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LogbookEntry } from './components/LogbookEntry';
 import { LoginForm } from './components/LoginForm';
-import { api, ApiError, AuthUser, getToken, setToken } from './services/api';
+import { api, AuthUser } from './services/api';
 
 type AuthState =
   | { status: 'loading' }
@@ -9,9 +9,7 @@ type AuthState =
   | { status: 'authed'; user: AuthUser };
 
 export default function App() {
-  const [auth, setAuth] = useState<AuthState>(() =>
-    getToken() ? { status: 'loading' } : { status: 'anon' },
-  );
+  const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
 
   useEffect(() => {
     if (auth.status !== 'loading') return;
@@ -21,9 +19,8 @@ export default function App() {
       .then((user) => {
         if (!cancelled) setAuth({ status: 'authed', user });
       })
-      .catch((err) => {
+      .catch(() => {
         if (cancelled) return;
-        if (err instanceof ApiError && err.status === 401) setToken(null);
         setAuth({ status: 'anon' });
       });
     return () => {
@@ -47,9 +44,8 @@ export default function App() {
     try {
       await api.auth.logout();
     } catch {
-      // ignore — clearing local token is enough
+      // ignore; local UI state is enough after a failed session cleanup
     }
-    setToken(null);
     setAuth({ status: 'anon' });
   }
 

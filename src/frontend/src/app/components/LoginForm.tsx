@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { api, ApiError, AuthUser, setToken } from '../services/api';
+import { api, ApiError, AuthUser } from '../services/api';
 
 interface Props {
   onAuthed: (user: AuthUser) => void;
@@ -23,7 +23,6 @@ export function LoginForm({ onAuthed }: Props) {
         mode === 'login'
           ? await api.auth.login(username, password)
           : await api.auth.register(username, password);
-      setToken(res.token);
       onAuthed(res.user);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Authentication failed');

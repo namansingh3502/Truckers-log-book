@@ -14,7 +14,11 @@ env = environ.Env(
     CORS_ALLOWED_ORIGINS=(list, ['http://localhost:5173', 'http://127.0.0.1:5173']),
 )
 
-environ.Env.read_env(BASE_DIR / '.env')
+# Read .env if present (local dev). On Vercel, env vars come from the
+# dashboard; the file won't exist and read_env should be a no-op.
+_env_file = BASE_DIR / '.env'
+if _env_file.exists():
+    environ.Env.read_env(_env_file)
 
 SECRET_KEY = env(
     'SECRET_KEY',
@@ -53,6 +57,7 @@ MIDDLEWARE = [
 AUTH_USER_MODEL = 'accounts.User'
 
 CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS')
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'config.urls'
 

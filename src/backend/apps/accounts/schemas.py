@@ -22,5 +22,4 @@ class UserOut(Schema):
 
 
 class AuthOut(Schema):
-    token: str
     user: UserOut
