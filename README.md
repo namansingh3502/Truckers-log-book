@@ -79,6 +79,29 @@ Full-stack:
 
 ## Local setup
 
+### Docker Compose
+
+Requires Docker Desktop or Docker Engine with Compose.
+
+```bash
+docker compose up --build
+```
+
+Services:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000/api
+- Postgres: localhost:5432 (`spotter` / `spotter` / `spotter`)
+
+The backend container waits for Postgres, runs `python manage.py migrate --noinput`, then starts Django on `0.0.0.0:8000`.
+
+Useful commands:
+```bash
+docker compose down
+docker compose down -v   # also removes the Postgres volume
+docker compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py seed_user_logs <username>
+```
+
 ### Backend
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
